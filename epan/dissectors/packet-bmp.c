@@ -127,12 +127,13 @@ void proto_reg_handoff_bmp(void);
 #define BMP_ROUTE_MIRRORING_TLV_INFORMATION 0x01
 
 /* BMP draft-ietf-grow-bmp-tlv TLV */
+#define BMPv4_TLV_TYPE_BGP_MSG                0x01
+#define BMPv4_TLV_TYPE_GROUP                  0x02
 #define BMPv4_TLV_TYPE_VRF_TABLE_NAME         0x03
-#define BMPv4_TLV_TYPE_BGP_MSG                0x04
-#define BMPv4_TLV_TYPE_GROUP                  0x05
+#define BMPv4_TLV_TYPE_STATELESS_PARSING      0x03
 #define BMPv4_TLV_TYPE_BGP_CAP_ADDPATH        0x06
 #define BMPv4_TLV_TYPE_BGP_CAP_MULTIPLE_LBL   0x07
-#define BMPv4_TLV_TYPE_BGP_PATH_STATUS        0x09
+#define BMPv4_TLV_TYPE_BGP_PATH_STATUS        0x05
 
 /* BMP draft-item-grow-bmp-tlv TLV Lengths */
 #define BMPv4_TLV_LENGTH_BGP_CAPABILITY             0x01
@@ -246,6 +247,7 @@ static const value_string bmpv4_tlv_typevals[] = {
     { BMPv4_TLV_TYPE_BGP_CAP_ADDPATH,        "BGP Add-Path Capability" },
     { BMPv4_TLV_TYPE_BGP_CAP_MULTIPLE_LBL,   "BGP Multi-Label Capability" },
     { BMPv4_TLV_TYPE_BGP_PATH_STATUS,        "BGP Path Status" },
+    { BMPv4_TLV_TYPE_STATELESS_PARSING,      "Stateless Parsing" },
     { 0, NULL }
 };
 
