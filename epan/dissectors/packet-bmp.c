@@ -127,6 +127,7 @@ void proto_reg_handoff_bmp(void);
 #define BMP_ROUTE_MIRRORING_TLV_INFORMATION 0x01
 
 /* BMP draft-ietf-grow-bmp-tlv TLV */
+#define BMPv4_TLV_TYPE_STATELESS_PARSING      0x01
 #define BMPv4_TLV_TYPE_GROUP                  0x02
 #define BMPv4_TLV_TYPE_VRF_TABLE_NAME         0x03
 #define BMPv4_TLV_TYPE_BGP_MSG                0x04
@@ -135,7 +136,6 @@ void proto_reg_handoff_bmp(void);
 #define BMPv4_TLV_TYPE_BGP_CAP_MULTIPLE_LBL   0x07
 
 /* BMP draft-item-grow-bmp-tlv TLV Lengths */
-#define BMPv4_TLV_LENGTH_BGP_CAPABILITY             0x01
 #define BMPv4_TLV_LENGTH_GROUP_ITEM                 0x02
 #define BMPv4_TLV_LENGTH_VRF_TABLE_NAME_MAX_LENGTH  0xFF
 #define BMPv4_TLV_LENGTH_PATH_STATUS_STATUS_LENGTH  0x04
@@ -240,11 +240,10 @@ static const value_string route_policy_tlv_policy_class_typevals[] = {
 };
 
 static const value_string bmpv4_tlv_typevals[] = {
+    { BMPv4_TLV_TYPE_STATELESS_PARSING,         "Stateless Parsing" },
     { BMPv4_TLV_TYPE_VRF_TABLE_NAME,         "VRF/Table Name" },
     { BMPv4_TLV_TYPE_BGP_MSG,                "BGP Message" },
     { BMPv4_TLV_TYPE_GROUP,                  "Group" },
-    { BMPv4_TLV_TYPE_BGP_CAP_ADDPATH,        "BGP Add-Path Capability" },
-    { BMPv4_TLV_TYPE_BGP_CAP_MULTIPLE_LBL,   "BGP Multi-Label Capability" },
     { BMPv4_TLV_TYPE_BGP_PATH_STATUS,        "BGP Path Status" },
     { 0, NULL }
 };
@@ -539,8 +538,6 @@ static int ett_bmpv4_tlv_path_status;
 
 static expert_field ei_stat_data_unknown;
 static expert_field ei_bmpv4_tlv_unknown_tlv;
-static expert_field ei_bmpv4_tlv_wrong_cap_size;
-static expert_field ei_bmpv4_tlv_wrong_cap_value;
 static expert_field ei_bmpv4_tlv_string_bad_length;
 
 static dissector_handle_t bmp_handle;
@@ -623,8 +620,12 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
         tlv = bmpv4_dissect_tlv_hdr(tvb, pinfo, &tlv_tree, &offset, bmp_msg_type);
 
         switch (tlv.type) {
+            case BMPv4_TLV_TYPE_STATELESS_PARSING: {
+                dissect_bgp_capability_item(tvb, tlv_tree, pinfo, offset, false);
+                offset += tlv.length;
+                break;
+            }
             case BMPv4_TLV_TYPE_GROUP: {
-
                 proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_group_id, tvb, offset, 2, ENC_BIG_ENDIAN);
                 offset += 2;
 
@@ -643,15 +644,14 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 break;
             }
             case BMPv4_TLV_TYPE_VRF_TABLE_NAME: {
-
-              proto_item *ti = proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_string, tvb, offset, tlv.length,
+                proto_item *ti = proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_string, tvb, offset, tlv.length,
                                                    ENC_ASCII);
               offset += tlv.length;
 
-              if (tlv.length == 0 || tlv.length > BMPv4_TLV_LENGTH_VRF_TABLE_NAME_MAX_LENGTH) {
-                expert_add_info(pinfo, ti, &ei_bmpv4_tlv_string_bad_length);
-              }
-              break;
+                if (tlv.length == 0 || tlv.length > BMPv4_TLV_LENGTH_VRF_TABLE_NAME_MAX_LENGTH) {
+                    expert_add_info(pinfo, ti, &ei_bmpv4_tlv_string_bad_length);
+                }
+                break;
             }
             case BMPv4_TLV_TYPE_BGP_PATH_STATUS: {
                 bool has_reason = tlv.length > BMPv4_TLV_LENGTH_PATH_STATUS_STATUS_LENGTH;
@@ -664,23 +664,6 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
 
                 proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_path_status_reason, tvb, offset, BMPv4_TLV_LENGTH_PATH_STATUS_REASON_LENGTH, ENC_BIG_ENDIAN);
                 offset += BMPv4_TLV_LENGTH_PATH_STATUS_REASON_LENGTH;
-                break;
-            }
-            case BMPv4_TLV_TYPE_BGP_CAP_ADDPATH:
-            case BMPv4_TLV_TYPE_BGP_CAP_MULTIPLE_LBL: {
-
-                uint16_t cap_value = tvb_get_uint8(tvb, offset);
-                if (cap_value != 0 && cap_value != 1) {
-                    expert_add_info(pinfo, tlv_tree, &ei_bmpv4_tlv_wrong_cap_value);
-                }
-
-                if (tlv.length != BMPv4_TLV_LENGTH_BGP_CAPABILITY) {
-                    expert_add_info(pinfo, tlv_tree, &ei_bmpv4_tlv_wrong_cap_size);
-                }
-
-                proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_bool, tvb, offset, BMPv4_TLV_LENGTH_BGP_CAPABILITY, ENC_NA);
-                offset += BMPv4_TLV_LENGTH_BGP_CAPABILITY;
-
                 break;
             }
             case BMPv4_TLV_TYPE_BGP_MSG: {
@@ -697,9 +680,7 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 // Unknown TLV
                 proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_bytes, tvb, offset, tlv.length, ENC_NA);
                 expert_add_info(pinfo, tlv_tree, &ei_bmpv4_tlv_unknown_tlv);
-                offset += tlv.length;
-
-            break;
+                break;
         }
     }
 }
@@ -2127,17 +2108,9 @@ proto_register_bmp(void)
           { "bmp.stats.data.unknown", PI_UNDECODED, PI_NOTE,
             "Unknown stats type payload", EXPFILL }
         },
-        { &ei_bmpv4_tlv_wrong_cap_size,
-          { "bmp.tlv.capability.bad_size", PI_MALFORMED, PI_ERROR,
-            "Wrong capability size (should be 1)", EXPFILL }
-        },
         { &ei_bmpv4_tlv_unknown_tlv,
           { "bmp.tlv.unknown", PI_UNDECODED, PI_WARN,
             "TLV Type is unknown", EXPFILL }
-        },
-        { &ei_bmpv4_tlv_wrong_cap_value,
-          { "bmp.tlv.capability.bad_value", PI_MALFORMED, PI_ERROR,
-            "Wrong capability value (should be 0 or 1)", EXPFILL }
         },
         { &ei_bmpv4_tlv_string_bad_length,
           { "bmp.tlv.string.bad_length", PI_MALFORMED, PI_NOTE,
