@@ -127,12 +127,12 @@ void proto_reg_handoff_bmp(void);
 #define BMP_ROUTE_MIRRORING_TLV_INFORMATION 0x01
 
 /* BMP draft-ietf-grow-bmp-tlv TLV */
+#define BMPv4_TLV_TYPE_GROUP                  0x02
 #define BMPv4_TLV_TYPE_VRF_TABLE_NAME         0x03
 #define BMPv4_TLV_TYPE_BGP_MSG                0x04
-#define BMPv4_TLV_TYPE_GROUP                  0x05
+#define BMPv4_TLV_TYPE_BGP_PATH_STATUS        0x05
 #define BMPv4_TLV_TYPE_BGP_CAP_ADDPATH        0x06
 #define BMPv4_TLV_TYPE_BGP_CAP_MULTIPLE_LBL   0x07
-#define BMPv4_TLV_TYPE_BGP_PATH_STATUS        0x09
 
 /* BMP draft-item-grow-bmp-tlv TLV Lengths */
 #define BMPv4_TLV_LENGTH_BGP_CAPABILITY             0x01
