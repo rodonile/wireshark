@@ -539,6 +539,7 @@ static int ett_bmpv4_tlv_path_status;
 static expert_field ei_stat_data_unknown;
 static expert_field ei_bmpv4_tlv_unknown_tlv;
 static expert_field ei_bmpv4_tlv_string_bad_length;
+static expert_field ei_bmpv4_tlv_not_fully_parsed;
 
 static dissector_handle_t bmp_handle;
 static dissector_handle_t dissector_bgp;
@@ -679,6 +680,10 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_bytes, tvb, offset, tlv.length, ENC_NA);
                 expert_add_info(pinfo, tlv_tree, &ei_bmpv4_tlv_unknown_tlv);
                 break;
+        }
+
+        if (offset != base_offset + tlv.length) {
+            expert_add_info(pinfo, tlv_tree, &ei_bmpv4_tlv_not_fully_parsed);
         }
 
         offset = base_offset + tlv.length;
@@ -2114,6 +2119,10 @@ proto_register_bmp(void)
         },
         { &ei_bmpv4_tlv_string_bad_length,
           { "bmp.tlv.string.bad_length", PI_MALFORMED, PI_NOTE,
+            "Bad string length (should be in range [1; 255])", EXPFILL }
+        },
+        { &ei_bmpv4_tlv_not_fully_parsed,
+          { "bmp.tlv.not_fully_parsed", PI_MALFORMED, PI_ERROR,
             "Bad string length (should be in range [1; 255])", EXPFILL }
         },
     };
