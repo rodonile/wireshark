@@ -618,6 +618,7 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
     while (tvb_captured_length_remaining(tvb, offset) >= 4) {
         proto_tree *tlv_tree = tree;
         tlv = bmpv4_dissect_tlv_hdr(tvb, pinfo, &tlv_tree, &offset, bmp_msg_type);
+        const int base_offset = offset;
 
         switch (tlv.type) {
             case BMPv4_TLV_TYPE_STATELESS_PARSING: {
@@ -629,10 +630,10 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_group_id, tvb, offset, 2, ENC_BIG_ENDIAN);
                 offset += 2;
 
-                int list_length = tlv.length - 2 /* group id is not in list */;
+                const int list_length = tlv.length - 2 /* group id is not in list */;
                 proto_item *ti = proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_bytes, tvb, offset, list_length, ENC_NA);
 
-                int list_count = list_length / BMPv4_TLV_LENGTH_GROUP_ITEM;
+                const int list_count = list_length / BMPv4_TLV_LENGTH_GROUP_ITEM;
                 proto_item_set_text(ti, "Target Count: %d", list_count);
                 proto_item *subtree = proto_item_add_subtree(ti, ett_bmpv4_tlv_value);
 
@@ -646,7 +647,6 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
             case BMPv4_TLV_TYPE_VRF_TABLE_NAME: {
                 proto_item *ti = proto_tree_add_item(tlv_tree, hf_bmpv4_tlv_value_string, tvb, offset, tlv.length,
                                                    ENC_ASCII);
-              offset += tlv.length;
 
                 if (tlv.length == 0 || tlv.length > BMPv4_TLV_LENGTH_VRF_TABLE_NAME_MAX_LENGTH) {
                     expert_add_info(pinfo, ti, &ei_bmpv4_tlv_string_bad_length);
@@ -654,7 +654,7 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 break;
             }
             case BMPv4_TLV_TYPE_BGP_PATH_STATUS: {
-                bool has_reason = tlv.length > BMPv4_TLV_LENGTH_PATH_STATUS_STATUS_LENGTH;
+                const bool has_reason = tlv.length > BMPv4_TLV_LENGTH_PATH_STATUS_STATUS_LENGTH;
 
                 proto_tree_add_bitmask(tlv_tree, tvb, offset, hf_bmpv4_tlv_path_status_status, ett_bmpv4_tlv_path_status, hf_bmpv4_tlv_path_status, ENC_BIG_ENDIAN);
                 offset += BMPv4_TLV_LENGTH_PATH_STATUS_STATUS_LENGTH;
@@ -672,8 +672,6 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 proto_tree *subtree = proto_item_add_subtree(ti, ett_bmpv4_tlv_value);
 
                 call_dissector(dissector_bgp, tvb_new_subset_length(tvb, offset, tlv.length), pinfo, subtree);
-
-                offset += tlv.length;
                 break;
             }
             default:
@@ -682,6 +680,8 @@ static void bmpv4_dissect_tlvs(proto_tree *tree, tvbuff_t *tvb, int offset, pack
                 expert_add_info(pinfo, tlv_tree, &ei_bmpv4_tlv_unknown_tlv);
                 break;
         }
+
+        offset = base_offset + tlv.length;
     }
 }
 
